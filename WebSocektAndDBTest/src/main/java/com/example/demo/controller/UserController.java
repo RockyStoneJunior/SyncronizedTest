@@ -3,6 +3,9 @@ package com.example.demo.controller;
 import java.io.UnsupportedEncodingException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
 
 import javax.servlet.ServletContext;
 import javax.servlet.http.HttpServletRequest;
@@ -88,7 +91,7 @@ public class UserController {
 
 	@RequestMapping(value="/login", method = {RequestMethod.GET, RequestMethod.POST})
 	@ResponseBody
-	public String userLogin(HttpServletRequest request, HttpSession session) throws UnsupportedEncodingException, NoSuchAlgorithmException {
+	public Map<String,String> userLogin(HttpServletRequest request, HttpSession session) throws UnsupportedEncodingException, NoSuchAlgorithmException {
 		
 		String username = request.getParameter("username");
 		String password = request.getParameter("password");
@@ -110,9 +113,15 @@ public class UserController {
 			
 			final ServletContext context = session.getServletContext();
 			context.setAttribute(session.getId(), session);
-			return "success:" + branch.getName();
+			
+			Map<String, String> resultMap = new HashMap<String, String>();
+			resultMap.put("result", "success");
+			resultMap.put("branch", branch.getName());
+			resultMap.put("token",session.getId());
+			
+			return resultMap;
 		}else {
-			return "failed";
+			return Collections.singletonMap("result", "failed");
 		}
 	}
 }

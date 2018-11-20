@@ -1,9 +1,26 @@
 package com.example.demo.spring;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
+import com.example.demo.dto.UserLoginForm;
+import com.example.demo.persistence.dao.AccountRepository;
+import com.example.demo.persistence.dao.BranchRepository;
+import com.example.demo.persistence.dao.MerchantRepository;
+import com.example.demo.persistence.model.Account;
+import com.example.demo.persistence.model.Branch;
+import com.example.demo.utils.MD5;
+import com.fasterxml.jackson.core.JsonParseException;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.JsonMappingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.*;
+
+import javax.annotation.PostConstruct;
+import javax.annotation.Resource;
 import javax.servlet.ServletContext;
 import javax.servlet.http.HttpSession;
 import javax.websocket.OnClose;
@@ -11,7 +28,11 @@ import javax.websocket.OnMessage;
 import javax.websocket.OnOpen;
 import javax.websocket.Session;
 import javax.websocket.server.ServerEndpoint;
+
+import java.io.EOFException;
 import java.io.IOException;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -20,6 +41,16 @@ import java.util.concurrent.CopyOnWriteArrayList;
 @Component
 public class NewOrderPrompt
 {
+	
+//	@Autowired
+//	private MerchantRepository merchantRepository;
+//	
+//	@Autowired
+//	private BranchRepository branchRepository;
+//	
+//	@Autowired
+//	private AccountRepository accountRepository;
+
     /**
      * 在线人数
      */
@@ -40,6 +71,27 @@ public class NewOrderPrompt
      *
      * @param session
      */
+    
+    @Autowired
+	private MerchantRepository merchantRepository;
+	
+	@Autowired
+	private BranchRepository branchRepository;
+	
+	@Autowired
+	private AccountRepository accountRepository;
+    
+    private static NewOrderPrompt newOrderPrompt;
+    
+    @PostConstruct
+    public void  init()
+    {
+    	newOrderPrompt = this;
+    	newOrderPrompt.branchRepository = this.branchRepository;
+    	newOrderPrompt.accountRepository = this.accountRepository;
+    	newOrderPrompt.merchantRepository = this.merchantRepository;
+    }
+	
     @OnOpen
     public void onOpen(Session session)
     {
@@ -68,20 +120,62 @@ public class NewOrderPrompt
      * @param message 消息
      * @param session 会话
      * @throws IOException 
+     * @throws NoSuchAlgorithmException 
      */
     @OnMessage
-    public void onMessage(String message, Session session) throws IOException
+    public void onMessage(String message, Session session) throws 
+    JsonParseException, JsonMappingException, EOFException, IOException, NoSuchAlgorithmException
     {
         System.out.println("[WS] Message from client: " + message);
  
-        sendMessage("[WS] Welcome!");
-        //sendMessage("the message is: " + message);
+//        sendMessage("[WS] Welcome!");
+//        sendMessage("the message is: " + message);
         
-        Iterator<NewOrderPrompt> myWebSocketIterator = NewOrderPrompt.webSockets.iterator();
-		while(myWebSocketIterator.hasNext())
+        ObjectMapper mapper = new ObjectMapper();
+        
+        mapper.configure(DeserializationFeature.ACCEPT_SINGLE_VALUE_AS_ARRAY, true);
+        mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+        
+        List<UserLoginForm> forms =  mapper.readValue(message, new TypeReference<List<UserLoginForm>>() {});
+        
+        for(UserLoginForm form : forms)
+        {
+        	System.out.println(form.toString());
+        }
+        
+        String username = forms.get(0).getForm().get(0).getUsername();
+		String password = forms.get(0).getForm().get(0).getPassword();
+		
+		MessageDigest md = MessageDigest.getInstance("MD5");
+        md.update(password.getBytes("UTF-8"));
+        String password_encypted = MD5.byteArrayToHexString(md.digest());
+        
+        System.out.println(password);
+        System.out.println(password_encypted);
+        
+        if(newOrderPrompt.accountRepository == null)
+        {
+        	System.out.println("accountRepository is null");
+        }
+		
+		Account account = newOrderPrompt.accountRepository.findByUsernameAndPassword(username, password_encypted);
+		
+		if(account != null)
 		{
-			myWebSocketIterator.next().sendMessage("[WS] The message is: " + message);
+			Branch branch = newOrderPrompt.branchRepository.findById(account.getBranch_id());
+			
+			System.out.println(session.getId());
+
+			sendMessage("success:" + branch.getName());
+		}else {
+			sendMessage("failed");
 		}
+        
+//        Iterator<NewOrderPrompt> myWebSocketIterator = NewOrderPrompt.webSockets.iterator();
+//		while(myWebSocketIterator.hasNext())
+//		{
+//			myWebSocketIterator.next().sendMessage("[WS] The message is: " + message);
+//		}
     }
  
     /**
