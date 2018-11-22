@@ -15,9 +15,9 @@ public class Account {
 	@GeneratedValue(strategy = GenerationType.AUTO)
 	private Long id;
 	
-	String username;
+	private String username;
 	
-	String password;
+ 	private String password;
 	
 	long branch_id;
 	

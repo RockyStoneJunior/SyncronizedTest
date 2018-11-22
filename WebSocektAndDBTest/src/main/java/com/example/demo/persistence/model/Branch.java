@@ -18,10 +18,11 @@ public class Branch {
 	@Column(name = "merchant_id")
 	private Long merchantId;
 	
-	String name;
+	private String name;
 	
-	String name_en;
-	
+	@Column(name = "name_en")
+	private String nameEn;
+
 	public Long getId() {
 		return id;
 	}
@@ -47,10 +48,11 @@ public class Branch {
 	}
 
 	public String getName_en() {
-		return name_en;
+		return nameEn;
 	}
 
 	public void setName_en(String name_en) {
-		this.name_en = name_en;
+		this.nameEn = name_en;
 	}
+	
 }

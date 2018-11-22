@@ -9,8 +9,10 @@ import com.example.demo.dto.UserLoginForm;
 import com.example.demo.persistence.dao.AccountRepository;
 import com.example.demo.persistence.dao.BranchRepository;
 import com.example.demo.persistence.dao.MerchantRepository;
+import com.example.demo.persistence.dao.OnlineUserRepository;
 import com.example.demo.persistence.model.Account;
 import com.example.demo.persistence.model.Branch;
+import com.example.demo.persistence.model.OnlineUser;
 import com.example.demo.utils.MD5;
 import com.fasterxml.jackson.core.JsonParseException;
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -33,6 +35,8 @@ import java.io.EOFException;
 import java.io.IOException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.sql.Timestamp;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -41,16 +45,6 @@ import java.util.concurrent.CopyOnWriteArrayList;
 @Component
 public class NewOrderPrompt
 {
-	
-//	@Autowired
-//	private MerchantRepository merchantRepository;
-//	
-//	@Autowired
-//	private BranchRepository branchRepository;
-//	
-//	@Autowired
-//	private AccountRepository accountRepository;
-
     /**
      * 在线人数
      */
@@ -60,6 +54,9 @@ public class NewOrderPrompt
      * 所有的对象
      */
     public static List<NewOrderPrompt> webSockets = new CopyOnWriteArrayList<NewOrderPrompt>();
+    public static HashMap<Long, NewOrderPrompt> branchSocket = new HashMap<Long, NewOrderPrompt>();
+    
+    private Long branch_id = new Long(0);
  
     /**
      * 会话
@@ -80,8 +77,11 @@ public class NewOrderPrompt
 	
 	@Autowired
 	private AccountRepository accountRepository;
+	
+//	@Autowired
+//	private OnlineUserRepository onlineUserRepository;
     
-    private static NewOrderPrompt newOrderPrompt;
+    public static NewOrderPrompt newOrderPrompt;
     
     @PostConstruct
     public void  init()
@@ -90,6 +90,7 @@ public class NewOrderPrompt
     	newOrderPrompt.branchRepository = this.branchRepository;
     	newOrderPrompt.accountRepository = this.accountRepository;
     	newOrderPrompt.merchantRepository = this.merchantRepository;
+    	//newOrderPrompt.onlineUserRepository = this.onlineUserRepository;
     }
 	
     @OnOpen
@@ -111,6 +112,7 @@ public class NewOrderPrompt
     {
         onlineNumber--;
         webSockets.remove(this);
+        branchSocket.remove(branch_id);
         System.out.println("[WS]Connection closed! The current online number: " + onlineNumber);
     }
  
@@ -127,9 +129,6 @@ public class NewOrderPrompt
     JsonParseException, JsonMappingException, EOFException, IOException, NoSuchAlgorithmException
     {
         System.out.println("[WS] Message from client: " + message);
- 
-//        sendMessage("[WS] Welcome!");
-//        sendMessage("the message is: " + message);
         
         ObjectMapper mapper = new ObjectMapper();
         
@@ -145,37 +144,37 @@ public class NewOrderPrompt
         
         String username = forms.get(0).getForm().get(0).getUsername();
 		String password = forms.get(0).getForm().get(0).getPassword();
+		String token = forms.get(0).getForm().get(0).getToken();
+		Long branch_id = forms.get(0).getForm().get(0).getBranch_id();
+		String branchNname = forms.get(0).getForm().get(0).getBranch();
 		
-		MessageDigest md = MessageDigest.getInstance("MD5");
-        md.update(password.getBytes("UTF-8"));
-        String password_encypted = MD5.byteArrayToHexString(md.digest());
+        System.out.println("token:" + token);
         
-        System.out.println(password);
-        System.out.println(password_encypted);
+        HttpSession httpSession = SessionListener.getSession(token);
         
-        if(newOrderPrompt.accountRepository == null)
+        if(httpSession != null)
         {
-        	System.out.println("accountRepository is null");
+        	sendMessage("success");
+        	
+        	this.branch_id = branch_id;
+        	branchSocket.put(branch_id, this);
+        	
+//        	OnlineUser onlineUser = new OnlineUser();
+//        	onlineUser.setUsername(username);
+//        	onlineUser.setBranchNname(branchNname);
+//        	onlineUser.setBranchId(branch_id);
+//        	onlineUserRepository.save(onlineUser);
+        	
+        	//OnlineUser onlineUser = onlineUserRepository.findByBranchId(branch_id);
+        	Branch branch = branchRepository.findById(branch_id);
+        }else {
+        	
+        	/*
+        	 * When connected by unlogin user, close socket to reclaim resources
+        	 */
+        	sendMessage("failed");
+        	this.session.close();
         }
-		
-		Account account = newOrderPrompt.accountRepository.findByUsernameAndPassword(username, password_encypted);
-		
-		if(account != null)
-		{
-			Branch branch = newOrderPrompt.branchRepository.findById(account.getBranch_id());
-			
-			System.out.println(session.getId());
-
-			sendMessage("success:" + branch.getName());
-		}else {
-			sendMessage("failed");
-		}
-        
-//        Iterator<NewOrderPrompt> myWebSocketIterator = NewOrderPrompt.webSockets.iterator();
-//		while(myWebSocketIterator.hasNext())
-//		{
-//			myWebSocketIterator.next().sendMessage("[WS] The message is: " + message);
-//		}
     }
  
     /**

@@ -45,14 +45,20 @@ public class UserController {
 		
 		String merchant_name = request.getParameter("merchant_name");
 		
+		System.out.println("Register: " + merchant_name);
+		
 		if(merchant_name != null)
 		{			
 			Merchant merchant = merchantRepository.findByName(merchant_name);
+			
+			System.out.println("Register: " + merchant);
 			
 			if(merchant != null)
 			{
 				String branch_name = request.getParameter("branch");
 				Branch branch = branchRepository.findByMerchantIdAndName(merchant.getId(), branch_name);
+				
+				System.out.println("Register: " + branch_name);
 				
 				if(branch != null)
 				{				
@@ -76,7 +82,7 @@ public class UserController {
 						
 						return "注册成功，请登录！";
 					}else {
-						return "用户名已存在";
+						return "该用户名已被注册";
 					}
 				}else {
 					return "分店不存在";
@@ -117,6 +123,7 @@ public class UserController {
 			Map<String, String> resultMap = new HashMap<String, String>();
 			resultMap.put("result", "success");
 			resultMap.put("branch", branch.getName());
+			resultMap.put("branch_id", branch.getId().toString());
 			resultMap.put("token",session.getId());
 			
 			return resultMap;
