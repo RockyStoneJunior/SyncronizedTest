@@ -1,18 +1,25 @@
 package com.example.demo.persistence.model;
 
+import java.util.Date;
+
 import javax.persistence.Column;
 import javax.persistence.Entity;
 import javax.persistence.GeneratedValue;
 import javax.persistence.GenerationType;
 import javax.persistence.Id;
+import javax.persistence.SequenceGenerator;
 import javax.persistence.Table;
+import javax.persistence.Temporal;
+import javax.persistence.TemporalType;
+
+import org.hibernate.annotations.CreationTimestamp;
 
 @Entity
 @Table(name = "account")
 public class Account {
 	@Id
 	@Column(unique = true, nullable = false)
-	@GeneratedValue(strategy = GenerationType.AUTO)
+	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	private Long id;
 	
 	private String username;
@@ -20,6 +27,10 @@ public class Account {
  	private String password;
 	
 	long branch_id;
+	
+	@Temporal(TemporalType.TIMESTAMP)
+	@CreationTimestamp
+	private Date date;
 	
 	public Long getId() {
 		return id;

@@ -13,10 +13,12 @@ import javax.persistence.Temporal;
 import javax.persistence.TemporalType;
 
 import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
 
 @Entity
-@Table(name = "online")
-public class OnlineUser {
+@Table(name = "history")
+public class LoginHistory {
+	
 	@Id
 	@Column(unique = true, nullable = false)
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -30,7 +32,11 @@ public class OnlineUser {
 	@Column(name = "branch_id")
 	private Long branchId;
 	
-	private Date date;
+	@Column(name = "login_date")
+	private Date loginDate;
+
+	@Column(name = "logout_date")
+	private Date logoutDate;
 	
 	public Long getId() {
 		return id;
@@ -64,11 +70,19 @@ public class OnlineUser {
 		this.branchId = branchId;
 	}
 	
-	public Date getDate() {
-		return date;
+	public Date getLoginDate() {
+		return loginDate;
 	}
 
-	public void setDate(Date date) {
-		this.date = date;
+	public void setLoginDate(Date loginDate) {
+		this.loginDate = loginDate;
+	}
+
+	public Date getLogoutDate() {
+		return logoutDate;
+	}
+
+	public void setLogoutDate(Date logoutDate) {
+		this.logoutDate = logoutDate;
 	}
 }

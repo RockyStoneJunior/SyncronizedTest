@@ -8,10 +8,12 @@ import org.springframework.web.context.request.ServletRequestAttributes;
 import com.example.demo.dto.UserLoginForm;
 import com.example.demo.persistence.dao.AccountRepository;
 import com.example.demo.persistence.dao.BranchRepository;
+import com.example.demo.persistence.dao.LoginHistoryRepository;
 import com.example.demo.persistence.dao.MerchantRepository;
 import com.example.demo.persistence.dao.OnlineUserRepository;
 import com.example.demo.persistence.model.Account;
 import com.example.demo.persistence.model.Branch;
+import com.example.demo.persistence.model.LoginHistory;
 import com.example.demo.persistence.model.OnlineUser;
 import com.example.demo.utils.MD5;
 import com.fasterxml.jackson.core.JsonParseException;
@@ -36,8 +38,10 @@ import java.io.IOException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.sql.Timestamp;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
  
@@ -54,9 +58,14 @@ public class NewOrderPrompt
      * 所有的对象
      */
     public static List<NewOrderPrompt> webSockets = new CopyOnWriteArrayList<NewOrderPrompt>();
-    public static HashMap<Long, NewOrderPrompt> branchSocket = new HashMap<Long, NewOrderPrompt>();
+    public static HashMap<String, NewOrderPrompt> branchSocket = new HashMap<String, NewOrderPrompt>();
+    public static HashMap<Long, List<String>> userList = new HashMap<Long, List<String>>();
+    public static HashMap<String, Long> branchList = new HashMap<String, Long>();
     
     private Long branch_id = new Long(0);
+    private String username;
+    private String branch_name;
+    private Date login_date;
  
     /**
      * 会话
@@ -78,8 +87,11 @@ public class NewOrderPrompt
 	@Autowired
 	private AccountRepository accountRepository;
 	
-//	@Autowired
-//	private OnlineUserRepository onlineUserRepository;
+	@Autowired
+	private OnlineUserRepository onlineUserRepository;
+	
+	@Autowired
+	private LoginHistoryRepository loginHistoryRepository;
     
     public static NewOrderPrompt newOrderPrompt;
     
@@ -90,7 +102,8 @@ public class NewOrderPrompt
     	newOrderPrompt.branchRepository = this.branchRepository;
     	newOrderPrompt.accountRepository = this.accountRepository;
     	newOrderPrompt.merchantRepository = this.merchantRepository;
-    	//newOrderPrompt.onlineUserRepository = this.onlineUserRepository;
+    	newOrderPrompt.onlineUserRepository = this.onlineUserRepository;
+    	newOrderPrompt.loginHistoryRepository = this.loginHistoryRepository;
     }
 	
     @OnOpen
@@ -110,9 +123,21 @@ public class NewOrderPrompt
     @OnClose
     public void onClose()
     {
+    	List<OnlineUser > onlineUser = newOrderPrompt.onlineUserRepository.findByUsername(username);
+    	newOrderPrompt.onlineUserRepository.delete(onlineUser);
+    	
+    	LoginHistory historyUser = new LoginHistory();
+    	historyUser.setUsername(username);
+    	historyUser.setBranchNname(branch_name);
+    	historyUser.setBranchId(branch_id);
+    	historyUser.setLoginDate(login_date);
+    	historyUser.setLogoutDate(new Date());
+    	newOrderPrompt.loginHistoryRepository.save(historyUser);
+    	
         onlineNumber--;
         webSockets.remove(this);
-        branchSocket.remove(branch_id);
+        branchSocket.remove(username);
+        userList.get(branch_id).remove(username);
         System.out.println("[WS]Connection closed! The current online number: " + onlineNumber);
     }
  
@@ -147,33 +172,56 @@ public class NewOrderPrompt
 		String token = forms.get(0).getForm().get(0).getToken();
 		Long branch_id = forms.get(0).getForm().get(0).getBranch_id();
 		String branchNname = forms.get(0).getForm().get(0).getBranch();
+		String message_type = forms.get(0).getType();
 		
         System.out.println("token:" + token);
         
         HttpSession httpSession = SessionListener.getSession(token);
         
-        if(httpSession != null)
+        if(message_type.equals("login"))
         {
-        	sendMessage("success");
-        	
-        	this.branch_id = branch_id;
-        	branchSocket.put(branch_id, this);
-        	
-//        	OnlineUser onlineUser = new OnlineUser();
-//        	onlineUser.setUsername(username);
-//        	onlineUser.setBranchNname(branchNname);
-//        	onlineUser.setBranchId(branch_id);
-//        	onlineUserRepository.save(onlineUser);
-        	
-        	//OnlineUser onlineUser = onlineUserRepository.findByBranchId(branch_id);
-        	Branch branch = branchRepository.findById(branch_id);
-        }else {
-        	
-        	/*
-        	 * When connected by unlogin user, close socket to reclaim resources
-        	 */
-        	sendMessage("failed");
-        	this.session.close();
+	        if(httpSession != null)
+	        {
+	        	sendMessage("success");
+	        	
+	        	this.username = username;
+	        	this.branch_id = branch_id;
+	        	this.branch_name = branchNname;
+	        	this.login_date = new Date();
+	        	branchSocket.put(username, this);
+	        	
+	        	OnlineUser onlineUser = new OnlineUser();
+	        	onlineUser.setUsername(this.username);
+	        	onlineUser.setBranchNname(this.branch_name);
+	        	onlineUser.setBranchId(this.branch_id);
+	        	onlineUser.setDate(this.login_date);
+	        	newOrderPrompt.onlineUserRepository.save(onlineUser);
+	        	
+	        	if(userList.containsKey(branch_id))
+	        	{
+	        		if(userList.get(branch_id).contains(username) == false)
+	        		{
+	        			userList.get(branch_id).add(username);
+	        		}else {
+	        			sendMessage("failed");
+	        			this.session.close();
+	        		}
+	        	}else {
+	        		List<String> list = new LinkedList<String>();
+	        		list.add(username);
+	        		userList.put(branch_id, list);
+	        	}
+	        }else {
+	        	
+	        	/*
+	        	 * When connected by unlogin user, close socket to reclaim resources
+	        	 */
+	        	sendMessage("failed");
+	        	this.session.close();
+	        }
+        }else if(message_type.equals("heart"))
+        {
+        	System.out.println("heart from: " + username);
         }
     }
  

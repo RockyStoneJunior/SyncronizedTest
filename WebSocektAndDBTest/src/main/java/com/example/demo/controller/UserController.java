@@ -23,6 +23,7 @@ import com.example.demo.persistence.dao.MerchantRepository;
 import com.example.demo.persistence.model.Account;
 import com.example.demo.persistence.model.Branch;
 import com.example.demo.persistence.model.Merchant;
+import com.example.demo.spring.NewOrderPrompt;
 import com.example.demo.utils.MD5;
 
 
@@ -113,20 +114,26 @@ public class UserController {
 		
 		if(account != null)
 		{
-			Branch branch = branchRepository.findById(account.getBranch_id());
-			
-			System.out.println(session.getId());
-			
-			final ServletContext context = session.getServletContext();
-			context.setAttribute(session.getId(), session);
-			
-			Map<String, String> resultMap = new HashMap<String, String>();
-			resultMap.put("result", "success");
-			resultMap.put("branch", branch.getName());
-			resultMap.put("branch_id", branch.getId().toString());
-			resultMap.put("token",session.getId());
-			
-			return resultMap;
+			if(NewOrderPrompt.branchSocket.containsKey(username))
+			{
+				return Collections.singletonMap("result", "islogin");
+			}else {
+				Branch branch = branchRepository.findById(account.getBranch_id());
+				
+				System.out.println(session.getId());
+				
+				final ServletContext context = session.getServletContext();
+				context.setAttribute(session.getId(), session);
+				
+				Map<String, String> resultMap = new HashMap<String, String>();
+				resultMap.put("result", "success");
+				resultMap.put("branch", branch.getName());
+				resultMap.put("branch_name_en", branch.getName_en());
+				resultMap.put("branch_id", branch.getId().toString());
+				resultMap.put("token",session.getId());
+				
+				return resultMap;
+			}
 		}else {
 			return Collections.singletonMap("result", "failed");
 		}
